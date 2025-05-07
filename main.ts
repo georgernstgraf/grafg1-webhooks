@@ -125,7 +125,9 @@ async function handle_post(c: hono.Context): Promise<Response> {
             args: ["-c", deploy_script],
         });
         const { code, stdout, stderr } = await command.output();
-        console.log({ code, stdout, stderr });
+        const stdoutText = new TextDecoder().decode(stdout);
+        const stderrText = new TextDecoder().decode(stderr);
+        console.log({ code, stdout: stdoutText, stderr: stderrText });
     } catch (err) {
         console.error("Error processing webhook:", err);
         message += (err as Error).message;
