@@ -97,7 +97,7 @@ async function handle_post(c: hono.Context): Promise<Response> {
     let message = "Thanks for calling! - ";
     try {
         const body = await c.req.text();
-        logAll(c, headers, body);
+        // logAll(c, headers, body);
         const signature = headers["x-hub-signature-256"] || "";
         if (!await verifySignature(body, signature)) {
             console.warn("401 Invalid signature");
