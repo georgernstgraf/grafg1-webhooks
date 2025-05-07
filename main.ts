@@ -105,8 +105,7 @@ async function handle_post(c: hono.Context): Promise<Response> {
         }
         const payload = JSON.parse(body);
         if (!payload.ref) {
-            console.log("400 no .ref on payload");
-            return c.text("No ref on payload", { status: 400 });
+            throw new Error("No ref on payload");
         }
         if (!payload.repository?.name) {
             console.log("400 no .repository.name on payload");
