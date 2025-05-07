@@ -1,13 +1,30 @@
 import * as hono from "@hono/hono";
 // webhook for receiving push events from GitHub
-const PORT = Number(Deno.env.get("PORT")) || errExit("PORT not in .env");
-const SECRET = Deno.env.get("SECRET") || errExit("SECRET not in .env");
-const DEPLOY_COMMAND = Deno.env.get("DEPLOY_COMMAND") ||
-    errExit("DEPLOY_COMMAND not in .env");
-const MOUNTPOINT = Deno.env.get("MOUNTPOINT") ||
-    errExit("MOUNTPOINT not in .env");
-const BRANCH = Deno.env.get("BRANCH") || errExit("BRANCH not in .env");
-
+const config: Record<string, string | Record<string, string> | string[]> = {};
+const env_vars = [
+    "PORT",
+    "SECRET",
+    "DEPLOY_COMMAND",
+    "MOUNTPOINT",
+    "ENDPOINTS", // comma-separated list of endpoints, they have "-" in them
+];
+for (const var_name of env_vars) {
+    const var_value = Deno.env.get(var_name);
+    if (!var_value) errExit(`${var_name} not in .env`);
+    config[var_name] = var_value;
+}
+config["ENDPOINTS"] = (config["ENDPOINTS"] as string).split(/, */);
+config["BRANCHES"] = {};
+for (const endpoint of config["ENDPOINTS"]) {
+    // eg ["graphsupply", "quiz-2ahwii-sj2425"]
+    const branch = Deno.env.get(`BRANCH_${endpoint.replaceAll("-", "_")}`);
+    if (!branch) errExit(`BRANCH_${endpoint} not in .env`);
+    config["BRANCHES"][endpoint] = branch;
+}
+console.log("Config loaded");
+console.log(JSON.stringify(config, null, 4));
+// Deno.exit(0);
+const PORT = parseInt(config["PORT"] as string, 10);
 function errExit(message: string): never {
     console.error(message);
     Deno.exit(1);
@@ -22,7 +39,7 @@ async function verifySignature(
 
     const key = await crypto.subtle.importKey(
         "raw",
-        new TextEncoder().encode(SECRET),
+        new TextEncoder().encode(config["SECRET"] as string),
         { name: "HMAC", hash: "SHA-256" },
         false,
         ["sign", "verify"],
@@ -73,7 +90,7 @@ async function handle_post(c: hono.Context): Promise<Response> {
             const payload = JSON.parse(body);
             // Check if it's a push to the production branch
             if (payload.ref) {
-                const deploy_script = `${DEPLOY_COMMAND}-${
+                const deploy_script = `${config["DEPLOY_COMMAND"]}-${
                     c.req.path.split("/").pop()
                 }`;
                 console.log("Deploying by calling: " + deploy_script);
@@ -103,7 +120,7 @@ async function handle_post(c: hono.Context): Promise<Response> {
         return c.text("Invalid signature", { status: 403 });
     }
 }
-const app = new hono.Hono().basePath(MOUNTPOINT); // "webhooks"
+const app = new hono.Hono().basePath(config["MOUNTPOINT"] as string); // "webhooks"
 app.get("/", (c) => c.text(`Webhook server running on port ${PORT}`));
 app.post("/graphsupply", handle_post);
 app.post("/quiz-2ahwii-sj2425", handle_post);
