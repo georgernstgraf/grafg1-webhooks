@@ -67,6 +67,7 @@ function logAll(c: hono.Context, headers: object, body: string): void {
     console.log(`Time: ${new Date().toISOString()}`);
     console.log("Method:", c.req.method);
     console.log("URL:", c.req.url);
+    console.log("PATH:", c.req.path);
     // Log all headers
     console.log("=== HEADERS ===");
     for (const [key, value] of Object.entries(headers)) {
@@ -122,8 +123,9 @@ async function handle_post(c: hono.Context): Promise<Response> {
 }
 const app = new hono.Hono().basePath(config["MOUNTPOINT"] as string); // "webhooks"
 app.get("/", (c) => c.text(`Webhook server running on port ${PORT}`));
-app.post("/graphsupply", handle_post);
-app.post("/quiz-2ahwii-sj2425", handle_post);
+for (const endpoint of config["ENDPOINTS"]) {
+    app.post(`/${endpoint}`, handle_post);
+}
 Deno.serve({
     port: PORT,
     hostname: "localhost",
