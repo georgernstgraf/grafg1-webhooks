@@ -1,6 +1,16 @@
 import * as hono from "@hono/hono";
 // webhook for receiving push events from GitHub
-const config: Record<string, string | Record<string, string> | string[]> = {};
+type Config = {
+    PORT: string;
+    SECRET: string;
+    DEPLOY_COMMAND: string;
+    MOUNTPOINT: string;
+    ENDPOINTS: string[] | string;
+    BRANCHES: Record<string, string>;
+    [key: string]: string | string[] | Record<string, string>;
+};
+
+const config: Config = {} as Config;
 const env_vars = [
     "PORT",
     "SECRET",
@@ -36,7 +46,6 @@ async function verifySignature(
     if (!signature || !signature.startsWith("sha256=")) {
         return false;
     }
-
     const key = await crypto.subtle.importKey(
         "raw",
         new TextEncoder().encode(config["SECRET"] as string),
@@ -77,55 +86,60 @@ function logAll(c: hono.Context, headers: object, body: string): void {
     console.log("=== BODY ===");
     console.log(body);
     console.log("======================================");
+    console.log(Deno.env.toObject());
+    console.log("======================================");
 }
 async function handle_post(c: hono.Context): Promise<Response> {
     const headers: Record<string, string> = {};
     for (const [key, value] of Object.entries(c.req.header())) {
         headers[key] = value as string;
     }
-    const body = await c.req.text();
-    logAll(c, headers, body);
-    const signature = headers["x-hub-signature-256"] || "";
-    if (await verifySignature(body, signature)) {
-        try {
-            const payload = JSON.parse(body);
-            // Check if it's a push to the production branch
-            if (payload.ref) {
-                const deploy_script = `${config["DEPLOY_COMMAND"]}-${
-                    c.req.path.split("/").pop()
-                }`;
-                console.log("Deploying by calling: " + deploy_script);
-                // Execute deployment command
-                const command = new Deno.Command("sh", {
-                    args: ["-c", deploy_script],
-                });
-
-                const { code, stdout, stderr } = await command.output();
-
-                if (code === 0) {
-                    console.log("Deployment successful");
-                } else {
-                    console.error("Deployment failed");
-                }
-                console.log("out: " + new TextDecoder().decode(stdout));
-                console.log("err:" + new TextDecoder().decode(stderr));
-            } else {
-                console.log("no .ref on payload");
-            }
-        } catch (error) {
-            console.error("Error processing webhook:", error);
+    try {
+        const body = await c.req.text();
+        logAll(c, headers, body);
+        const signature = headers["x-hub-signature-256"] || "";
+        if (!await verifySignature(body, signature)) {
+            console.warn("401 Invalid signature");
+            return c.text("Invalid signature", { status: 401 });
         }
-        return c.text("Webhook received", { status: 200 });
-    } else {
-        console.warn("Invalid signature");
-        return c.text("Invalid signature", { status: 403 });
+        const payload = JSON.parse(body);
+        if (!payload.ref) {
+            console.log("400 no .ref on payload");
+            return c.text("No ref on payload", { status: 400 });
+        }
+        if (!payload.repository?.name) {
+            console.log("400 no .repository.name on payload");
+            return c.text("No repository.name on payload", { status: 400 });
+        }
+        const pushed_branch = payload.ref.split("/").pop();
+        const pushed_repo = payload.repository.name;
+        const prod_branch = config["BRANCHES"][pushed_repo];
+        const deploy_script = `${config["DEPLOY_COMMAND"]}-${
+            c.req.path.split("/").pop()
+        }`;
+        console.log({ pushed_branch, pushed_repo, prod_branch, deploy_script });
+        // Execute deployment command
+        const command = new Deno.Command("sh", {
+            args: ["-c", deploy_script],
+        });
+
+        const { code, stdout, stderr } = await command.output();
+
+        if (code === 0) {
+            console.log("Deployment successful");
+        } else {
+            console.error("Deployment failed");
+        }
+        console.log("out: " + new TextDecoder().decode(stdout));
+        console.log("err:" + new TextDecoder().decode(stderr));
+    } catch (error) {
+        console.error("Error processing webhook:", error);
     }
+    return c.text("Webhook received", { status: 200 });
 }
 const app = new hono.Hono().basePath(config["MOUNTPOINT"] as string); // "webhooks"
 app.get("/", (c) => c.text(`Webhook server running on port ${PORT}`));
-for (const endpoint of config["ENDPOINTS"]) {
-    app.post(`/${endpoint}`, handle_post);
-}
+app.post("/", handle_post);
 Deno.serve({
     port: PORT,
     hostname: "localhost",
