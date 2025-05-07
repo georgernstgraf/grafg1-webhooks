@@ -70,25 +70,25 @@ async function verifySignature(
     return expectedHex === receivedSignature;
 }
 
-function logAll(c: hono.Context, headers: object, body: string): void {
-    // Get and log raw body
-    console.log("===== WEBHOOK REQUEST RECEIVED =====");
-    console.log(`Time: ${new Date().toISOString()}`);
-    console.log("Method:", c.req.method);
-    console.log("URL:", c.req.url);
-    console.log("PATH:", c.req.path);
-    // Log all headers
-    console.log("=== HEADERS ===");
-    for (const [key, value] of Object.entries(headers)) {
-        console.log(`${key}: ${value}`);
-    }
-    // Get and log raw body
-    console.log("=== BODY ===");
-    console.log(body);
-    console.log("======================================");
-    console.log(Deno.env.toObject());
-    console.log("======================================");
-}
+//function logAll(c: hono.Context, headers: object, body: string): void {
+//    // Get and log raw body
+//    console.log("===== WEBHOOK REQUEST RECEIVED =====");
+//    console.log(`Time: ${new Date().toISOString()}`);
+//    console.log("Method:", c.req.method);
+//    console.log("URL:", c.req.url);
+//    console.log("PATH:", c.req.path);
+//    // Log all headers
+//    console.log("=== HEADERS ===");
+//    for (const [key, value] of Object.entries(headers)) {
+//        console.log(`${key}: ${value}`);
+//    }
+//    // Get and log raw body
+//    console.log("=== BODY ===");
+//    console.log(body);
+//    console.log("======================================");
+//    console.log(Deno.env.toObject());
+//    console.log("======================================");
+//}
 async function handle_post(c: hono.Context): Promise<Response> {
     const headers: Record<string, string> = {};
     for (const [key, value] of Object.entries(c.req.header())) {
