@@ -1,0 +1,14 @@
+###
+
+POST http://localhost:8888/webhook/graphsupply 
+Content-Type: application/json
+
+{
+    "event": "graphSupply",
+    "data": {
+        "supply": {
+            "supply": 1000000,
+            "timestamp": 1697059200
+        }
+    }
+}
