@@ -94,6 +94,7 @@ async function handle_post(c: hono.Context): Promise<Response> {
     for (const [key, value] of Object.entries(c.req.header())) {
         headers[key] = value as string;
     }
+    let message = "Thanks for calling! - ";
     try {
         const body = await c.req.text();
         logAll(c, headers, body);
@@ -114,28 +115,24 @@ async function handle_post(c: hono.Context): Promise<Response> {
         const pushed_branch = payload.ref.split("/").pop();
         const pushed_repo = payload.repository.name;
         const prod_branch = config["BRANCHES"][pushed_repo];
-        const deploy_script = `${config["DEPLOY_COMMAND"]}-${
-            c.req.path.split("/").pop()
-        }`;
+        const deploy_script = `${config["DEPLOY_COMMAND"]}-${pushed_repo}`;
         console.log({ pushed_branch, pushed_repo, prod_branch, deploy_script });
-        // Execute deployment command
+        if (prod_branch !== pushed_branch) {
+            console.log("different branch pushed, ignoring");
+            return c.text("Different branch pushed, ignoring", { status: 200 });
+        }
+        console.log("now deploying");
         const command = new Deno.Command("sh", {
             args: ["-c", deploy_script],
         });
-
         const { code, stdout, stderr } = await command.output();
-
-        if (code === 0) {
-            console.log("Deployment successful");
-        } else {
-            console.error("Deployment failed");
-        }
-        console.log("out: " + new TextDecoder().decode(stdout));
-        console.log("err:" + new TextDecoder().decode(stderr));
-    } catch (error) {
-        console.error("Error processing webhook:", error);
+        console.log({ code, stdout, stderr });
+    } catch (err) {
+        console.error("Error processing webhook:", err);
+        message += (err as Error).message;
     }
-    return c.text("Webhook received", { status: 200 });
+    console.log("My Message to github:", message);
+    return c.text(message, { status: 200 });
 }
 const app = new hono.Hono().basePath(config["MOUNTPOINT"] as string); // "webhooks"
 app.get("/", (c) => c.text(`Webhook server running on port ${PORT}`));
