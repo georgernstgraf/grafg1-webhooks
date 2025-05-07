@@ -1,11 +1,12 @@
 import * as hono from "@hono/hono";
-
+// webhook for receiving push events from GitHub
 const PORT = Number(Deno.env.get("PORT")) || errExit("PORT not in .env");
 const SECRET = Deno.env.get("SECRET") || errExit("SECRET not in .env");
 const DEPLOY_COMMAND = Deno.env.get("DEPLOY_COMMAND") ||
     errExit("DEPLOY_COMMAND not in .env");
 const MOUNTPOINT = Deno.env.get("MOUNTPOINT") ||
     errExit("MOUNTPOINT not in .env");
+const BRANCH = Deno.env.get("BRANCH") || errExit("BRANCH not in .env");
 
 function errExit(message: string): never {
     console.error(message);
@@ -43,54 +44,55 @@ async function verifySignature(
     return expectedHex === receivedSignature;
 }
 
-const app = new hono.Hono().basePath(MOUNTPOINT);
-app.get("/", (c) => c.text(`Webhook server running on port ${PORT}`));
-app.post("/graphsupply", async (c) => {
-    // Log full request details
+function logAll(c: hono.Context, headers: object, body: string): void {
+    // Get and log raw body
     console.log("===== WEBHOOK REQUEST RECEIVED =====");
     console.log(`Time: ${new Date().toISOString()}`);
     console.log("Method:", c.req.method);
     console.log("URL:", c.req.url);
-
     // Log all headers
     console.log("=== HEADERS ===");
-    const headers: Record<string, string> = {};
-    for (const [key, value] of Object.entries(c.req.header())) {
+    for (const [key, value] of Object.entries(headers)) {
         console.log(`${key}: ${value}`);
-        headers[key] = value as string;
     }
-
     // Get and log raw body
-    const body = await c.req.text();
     console.log("=== BODY ===");
     console.log(body);
     console.log("======================================");
-
+}
+async function handle_post(c: hono.Context): Promise<Response> {
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(c.req.header())) {
+        headers[key] = value as string;
+    }
+    const body = await c.req.text();
+    logAll(c, headers, body);
     const signature = headers["x-hub-signature-256"] || "";
     if (await verifySignature(body, signature)) {
         try {
             const payload = JSON.parse(body);
             // Check if it's a push to the production branch
-            if (
-                payload.ref === "refs/heads/prod" ||
-                payload.ref === "refs/heads/production"
-            ) {
-                console.log("Deploying...");
-
+            if (payload.ref) {
+                const deploy_script = `${DEPLOY_COMMAND}-${
+                    c.req.path.split("/").pop()
+                }`;
+                console.log("Deploying by calling: " + deploy_script);
                 // Execute deployment command
                 const command = new Deno.Command("sh", {
-                    args: ["-c", DEPLOY_COMMAND],
+                    args: ["-c", deploy_script],
                 });
 
                 const { code, stdout, stderr } = await command.output();
 
                 if (code === 0) {
                     console.log("Deployment successful");
-                    console.log(new TextDecoder().decode(stdout));
                 } else {
                     console.error("Deployment failed");
-                    console.error(new TextDecoder().decode(stderr));
                 }
+                console.log("out: " + new TextDecoder().decode(stdout));
+                console.log("err:" + new TextDecoder().decode(stderr));
+            } else {
+                console.log("no .ref on payload");
             }
         } catch (error) {
             console.error("Error processing webhook:", error);
@@ -100,7 +102,11 @@ app.post("/graphsupply", async (c) => {
         console.warn("Invalid signature");
         return c.text("Invalid signature", { status: 403 });
     }
-});
+}
+const app = new hono.Hono().basePath(MOUNTPOINT); // "webhooks"
+app.get("/", (c) => c.text(`Webhook server running on port ${PORT}`));
+app.post("/graphsupply", handle_post);
+app.post("/quiz-2ahwii-sj2425", handle_post);
 Deno.serve({
     port: PORT,
     hostname: "localhost",
