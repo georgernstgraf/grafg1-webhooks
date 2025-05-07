@@ -1,6 +1,23 @@
 ###
 
-POST http://localhost:8888/webhook/graphsupply 
+GET https://grafg1.spengergasse.at/webhooks
+###
+POST https://grafg1.spengergasse.at/webhooks/graphsupply
+Content-Type: application/json
+
+{
+    "event": "graphSupply",
+    "data": {
+        "supply": {
+            "supply": 1000000,
+            "timestamp": 1697059200
+        }
+    }
+}
+
+###
+
+POST http://localhost:8888/webhook/graphsupply
 Content-Type: application/json
 
 {

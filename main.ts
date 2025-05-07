@@ -63,7 +63,7 @@ app.post("/graphsupply", async (c) => {
     // Get and log raw body
     const body = await c.req.text();
     console.log("=== BODY ===");
-    console.log(body);
+    console.log(JSON.stringify(body, null, 4));
     console.log("======================================");
 
     const signature = headers["x-hub-signature-256"] || "";
