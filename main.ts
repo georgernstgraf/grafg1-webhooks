@@ -75,7 +75,7 @@ async function handle_post(c: hono.Context): Promise<Response> {
     for (const [key, value] of Object.entries(c.req.header())) {
         headers[key] = value as string;
     }
-    let message = "Thanks for calling! - ";
+    let message = "Thanks for calling!";
     try {
         const body = await c.req.text();
         const signature = headers["x-hub-signature-256"] || "";
@@ -113,7 +113,7 @@ async function handle_post(c: hono.Context): Promise<Response> {
         }, 1000);
     } catch (err) {
         console.error("Error processing webhook:", err);
-        message += (err as Error).message;
+        message += "  " + (err as Error).message;
     }
     console.log("My Message to github:", message);
     return c.text(message, { status: 200 });
