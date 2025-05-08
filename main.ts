@@ -100,6 +100,7 @@ async function handle_post(c: hono.Context): Promise<Response> {
             console.log("different branch pushed, ignoring");
             return c.text("Different branch pushed, ignoring", { status: 200 });
         }
+        // so that this service itself does not crash in the middle of responding
         setTimeout(async () => {
             console.log("now deploying");
             const command = new Deno.Command("sh", {
