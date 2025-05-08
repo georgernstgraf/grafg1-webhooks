@@ -70,25 +70,6 @@ async function verifySignature(
     return expectedHex === receivedSignature;
 }
 
-//function logAll(c: hono.Context, headers: object, body: string): void {
-//    // Get and log raw body
-//    console.log("===== WEBHOOK REQUEST RECEIVED =====");
-//    console.log(`Time: ${new Date().toISOString()}`);
-//    console.log("Method:", c.req.method);
-//    console.log("URL:", c.req.url);
-//    console.log("PATH:", c.req.path);
-//    // Log all headers
-//    console.log("=== HEADERS ===");
-//    for (const [key, value] of Object.entries(headers)) {
-//        console.log(`${key}: ${value}`);
-//    }
-//    // Get and log raw body
-//    console.log("=== BODY ===");
-//    console.log(body);
-//    console.log("======================================");
-//    console.log(Deno.env.toObject());
-//    console.log("======================================");
-//}
 async function handle_post(c: hono.Context): Promise<Response> {
     const headers: Record<string, string> = {};
     for (const [key, value] of Object.entries(c.req.header())) {
@@ -97,7 +78,6 @@ async function handle_post(c: hono.Context): Promise<Response> {
     let message = "Thanks for calling! - ";
     try {
         const body = await c.req.text();
-        // logAll(c, headers, body);
         const signature = headers["x-hub-signature-256"] || "";
         if (!await verifySignature(body, signature)) {
             console.warn("401 Invalid signature");
@@ -120,14 +100,16 @@ async function handle_post(c: hono.Context): Promise<Response> {
             console.log("different branch pushed, ignoring");
             return c.text("Different branch pushed, ignoring", { status: 200 });
         }
-        console.log("now deploying");
-        const command = new Deno.Command("sh", {
-            args: ["-c", deploy_script],
-        });
-        const { code, stdout, stderr } = await command.output();
-        const stdoutText = new TextDecoder().decode(stdout);
-        const stderrText = new TextDecoder().decode(stderr);
-        console.log({ code, stdout: stdoutText, stderr: stderrText });
+        setTimeout(async () => {
+            console.log("now deploying");
+            const command = new Deno.Command("sh", {
+                args: ["-c", deploy_script],
+            });
+            const { code, stdout, stderr } = await command.output();
+            const stdoutText = new TextDecoder().decode(stdout);
+            const stderrText = new TextDecoder().decode(stderr);
+            console.log({ code, stdout: stdoutText, stderr: stderrText });
+        }, 1000);
     } catch (err) {
         console.error("Error processing webhook:", err);
         message += (err as Error).message;
