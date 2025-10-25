@@ -1,3 +1,8 @@
 # grafg1-webhooks
 
-auto-deployments
+receiving github refresh actions
+
+## tech-stack
+
+- deno
+- hono
