@@ -1,6 +1,6 @@
 # grafg1-webhooks
 
-receiving github refresh actions
+receiving refresh actions from github webhooks
 
 ## tech-stack
 
